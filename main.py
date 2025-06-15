@@ -96,40 +96,53 @@ st.markdown("""
         font-size: 0.8rem;
         margin: 0.5rem 0;
     }
+    
+    .error-message {
+        background: #ffebee;
+        border: 1px solid #ef5350;
+        padding: 1rem;
+        border-radius: 8px;
+        color: #c62828;
+        margin: 1rem 0;
+    }
+    
+    .loading-message {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        padding: 1rem;
+        border-radius: 8px;
+        color: #1565c0;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Available Qwen models for travel planning
+# Updated Qwen models with correct and available model IDs
 QWEN_TRAVEL_MODELS = {
-    "Qwen3-0.6B (Latest)": {
-        "model_id": "Qwen/Qwen3-0.6B",
-        "description": "Latest Qwen3 with thinking capabilities",
-        "features": ["Reasoning", "Fast Response", "Multilingual"]
-    },
-    "Qwen3-8B (Advanced)": {
-        "model_id": "Qwen/Qwen3-8B", 
-        "description": "Powerful Qwen3 model for complex planning",
-        "features": ["Deep Reasoning", "Complex Planning", "Cultural Insights"]
-    },
     "Qwen2.5-7B-Instruct": {
         "model_id": "Qwen/Qwen2.5-7B-Instruct",
-        "description": "Reliable instruction-following model",
-        "features": ["Structured Output", "Detailed Planning", "Reliable"]
+        "description": "Powerful model for complex travel planning",
+        "features": ["Deep Reasoning", "Complex Planning", "Cultural Insights"]
     },
     "Qwen2.5-3B-Instruct": {
         "model_id": "Qwen/Qwen2.5-3B-Instruct",
-        "description": "Efficient model for quick responses",
-        "features": ["Fast", "Efficient", "Good Balance"]
+        "description": "Balanced model for travel recommendations",
+        "features": ["Good Balance", "Detailed Planning", "Reliable"]
     },
     "Qwen2.5-1.5B-Instruct": {
         "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
-        "description": "Lightweight model for basic planning",
-        "features": ["Very Fast", "Basic Planning", "Resource Efficient"]
+        "description": "Efficient model for quick responses",
+        "features": ["Fast", "Efficient", "Basic Planning"]
     },
     "Qwen2.5-0.5B-Instruct": {
         "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
-        "description": "Ultra-fast for quick travel tips",
-        "features": ["Ultra Fast", "Quick Tips", "Minimal Resources"]
+        "description": "Lightweight model for quick travel tips",
+        "features": ["Very Fast", "Quick Tips", "Minimal Resources"]
+    },
+    "Qwen2-7B-Instruct": {
+        "model_id": "Qwen/Qwen2-7B-Instruct",
+        "description": "Reliable Qwen2 model for travel planning",
+        "features": ["Stable", "Comprehensive", "Well-tested"]
     }
 }
 
@@ -184,150 +197,177 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
-def create_qwen_travel_prompt(user_input: str, demographic: str, budget: int, days: int, destination: str, model_name: str) -> str:
+def create_qwen_travel_prompt(user_input: str, demographic: str, budget: int, days: int, destination: str) -> str:
     """Create a specialized travel planning prompt optimized for Qwen models"""
     demo_info = DEMOGRAPHICS.get(demographic, {})
     preferences = demo_info.get("preferences", [])
     activity_style = demo_info.get("activity_style", "balanced")
     
-    # Special handling for Qwen3 models with thinking capabilities
-    if "Qwen3" in model_name:
-        system_prompt = f"""You are TripCraft AI, an expert travel planning assistant powered by Qwen3. Use your reasoning capabilities to create personalized itineraries.
+    # Simplified prompt that works better with Qwen models
+    system_prompt = f"""You are TripCraft AI, an expert travel planning assistant. Create personalized travel recommendations.
 
-<think>
-Let me analyze the travel request:
-- Demographic: {demographic} (preferences: {', '.join(preferences)})
+TRAVEL PLANNING CONTEXT:
+- Traveler Type: {demographic}
 - Destination: {destination}
-- Budget: ${budget} for {days} days
-- Activity Style: {activity_style}
-
-I should consider:
-1. Budget allocation based on demographic
-2. Age-appropriate activities
-3. Local culture and customs
-4. Seasonal considerations
-5. Safety and accessibility
-</think>
-
-Current Planning Context:
-- Demographic: {demographic}
-- Destination: {destination}
-- Budget: ${budget}
+- Budget: ${budget} USD
 - Duration: {days} days
 - Preferences: {', '.join(preferences)}
 - Activity Style: {activity_style}
 
-Your expertise includes:
-✈️ Demographic-specific recommendations
-💰 Smart budget planning with detailed breakdowns
-📅 Day-by-day itinerary creation
-🏨 Accommodation matching preferences
-🍽️ Local dining recommendations
-🎯 Activities based on interests and capabilities
-🚗 Transportation and logistics planning
+INSTRUCTIONS:
+1. Provide practical travel advice based on the demographic and budget
+2. Suggest specific activities, accommodations, and dining options
+3. Include estimated costs when possible
+4. Consider the traveler's age group and interests
+5. Be specific and actionable in your recommendations
 
-Provide practical, detailed, and personalized travel advice. Always consider demographic preferences and budget constraints."""
-    else:
-        system_prompt = f"""You are TripCraft AI, an expert travel planning assistant. Create personalized itineraries based on demographics, budgets, and preferences.
+USER QUESTION: {user_input}
 
-Planning Context:
-- Demographic: {demographic}
-- Destination: {destination}  
-- Budget: ${budget}
-- Duration: {days} days
-- Preferences: {', '.join(preferences)}
-- Activity Style: {activity_style}
+RESPONSE:"""
+    
+    return system_prompt
 
-Provide detailed travel recommendations including:
-- Budget-conscious planning with cost breakdowns
-- Day-by-day itinerary suggestions
-- Accommodation recommendations
-- Dining and activity suggestions
-- Transportation planning
-
-Focus on {demographic.lower()} preferences and stay within the ${budget} budget."""
-
-    return f"{system_prompt}\n\nUser Request: {user_input}\n\nTripCraft AI Response:"
-
-def query_qwen_model(prompt: str, model_id: str, hf_token: str) -> str:
-    """Query Qwen model with optimized parameters"""
+def test_model_availability(model_id: str, hf_token: str) -> bool:
+    """Test if a model is available and responsive"""
     headers = {"Authorization": f"Bearer {hf_token}"}
     api_url = f"https://api-inference.huggingface.co/models/{model_id}"
     
-    # Optimized parameters for Qwen models
-    if "Qwen3" in model_id:
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 512,
-                "temperature": 0.7,
-                "top_p": 0.9,
-                "do_sample": True,
-                "return_full_text": False,
-                "stop": ["<|im_end|>", "<|endoftext|>"]
-            }
+    test_payload = {
+        "inputs": "Hello, can you help with travel planning?",
+        "parameters": {
+            "max_new_tokens": 50,
+            "temperature": 0.7,
+            "return_full_text": False
         }
-    else:  # Qwen2.5 models
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 400,
-                "temperature": 0.8,
-                "top_p": 0.9,
-                "do_sample": True,
-                "return_full_text": False,
-                "repetition_penalty": 1.1
-            }
-        }
+    }
     
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-        
-        # Handle model loading
-        if response.status_code == 503:
-            st.warning(f"🤖 {model_id.split('/')[-1]} is loading... Please wait a moment.")
-            time.sleep(20)  # Longer wait for larger models
-            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-        
-        response.raise_for_status()
-        result = response.json()
-        
-        # Extract response text
-        if isinstance(result, list) and result:
-            text = result[0].get('generated_text', '')
-        elif isinstance(result, dict):
-            text = result.get('generated_text', result.get('text', ''))
+        response = requests.post(api_url, headers=headers, json=test_payload, timeout=10)
+        if response.status_code == 200:
+            return True
+        elif response.status_code == 503:
+            # Model is loading but available
+            return True
         else:
-            text = str(result)
+            return False
+    except:
+        return False
+
+def query_qwen_model(prompt: str, model_id: str, hf_token: str, max_retries: int = 3) -> str:
+    """Query Qwen model with improved error handling and retry logic"""
+    headers = {"Authorization": f"Bearer {hf_token}"}
+    api_url = f"https://api-inference.huggingface.co/models/{model_id}"
+    
+    # Optimized parameters for better responses
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 512,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "do_sample": True,
+            "return_full_text": False,
+            "repetition_penalty": 1.1,
+            "stop_sequences": ["USER:", "ASSISTANT:", "Human:", "AI:"]
+        }
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            st.write(f"🔄 Attempt {attempt + 1}: Querying {model_id.split('/')[-1]}...")
+            
+            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+            
+            # Handle different response codes
+            if response.status_code == 503:
+                error_data = response.json() if response.content else {}
+                estimated_time = error_data.get('estimated_time', 30)
+                
+                st.warning(f"🤖 Model {model_id.split('/')[-1]} is loading... Estimated time: {estimated_time}s")
+                
+                # Wait and retry
+                time.sleep(min(estimated_time + 5, 60))
+                continue
+                
+            elif response.status_code == 429:
+                st.warning("⏳ Rate limited. Waiting before retry...")
+                time.sleep(10)
+                continue
+                
+            elif response.status_code != 200:
+                st.error(f"❌ HTTP {response.status_code}: {response.text}")
+                if attempt == max_retries - 1:
+                    return f"I'm experiencing technical difficulties with the {model_id.split('/')[-1]} model. The service returned an error (HTTP {response.status_code}). Please try again later or select a different model."
+                continue
+            
+            # Parse successful response
+            result = response.json()
+            
+            # Extract text from response
+            if isinstance(result, list) and len(result) > 0:
+                if isinstance(result[0], dict):
+                    text = result[0].get('generated_text', '')
+                else:
+                    text = str(result[0])
+            elif isinstance(result, dict):
+                text = result.get('generated_text', result.get('text', ''))
+            else:
+                text = str(result)
+            
+            # Clean up the response
+            if text:
+                # Remove common artifacts
+                cleanup_patterns = [
+                    "RESPONSE:",
+                    "ASSISTANT:",
+                    "AI:",
+                    "<|im_start|>assistant",
+                    "<|im_end|>",
+                    "<|endoftext|>",
+                    "Human:",
+                    "USER:"
+                ]
+                
+                for pattern in cleanup_patterns:
+                    if pattern in text:
+                        parts = text.split(pattern)
+                        text = parts[-1].strip()
+                
+                # Remove leading/trailing whitespace and empty lines
+                text = text.strip()
+                
+                if len(text) > 10:  # Reasonable response length
+                    st.success(f"✅ Response received from {model_id.split('/')[-1]}")
+                    return text
+                else:
+                    st.warning(f"⚠️ Short response from {model_id.split('/')[-1]}: {text}")
+                    if attempt == max_retries - 1:
+                        return "I received a very short response. Could you please rephrase your question or provide more specific details about your travel plans?"
+            else:
+                st.warning(f"⚠️ Empty response from {model_id.split('/')[-1]}")
+                if attempt == max_retries - 1:
+                    return "I didn't receive a proper response. Please try rephrasing your question or select a different model."
         
-        # Clean up Qwen3 thinking blocks if present
-        if "<think>" in text and "</think>" in text:
-            # Extract only the response after thinking
-            parts = text.split("</think>")
-            if len(parts) > 1:
-                text = parts[-1].strip()
+        except requests.exceptions.Timeout:
+            st.warning(f"⏱️ Timeout on attempt {attempt + 1}")
+            if attempt == max_retries - 1:
+                return "The request timed out. The model might be under heavy load. Please try again later."
         
-        # Clean up response markers
-        cleanup_markers = [
-            "TripCraft AI Response:",
-            "Assistant:",
-            "Response:",
-            "<|im_start|>assistant",
-            "<|im_end|>"
-        ]
+        except requests.exceptions.RequestException as e:
+            st.error(f"🌐 Network error: {str(e)}")
+            if attempt == max_retries - 1:
+                return "I'm experiencing network connectivity issues. Please check your internet connection and try again."
         
-        for marker in cleanup_markers:
-            if marker in text:
-                text = text.split(marker)[-1].strip()
+        except Exception as e:
+            st.error(f"❌ Unexpected error: {str(e)}")
+            if attempt == max_retries - 1:
+                return "An unexpected error occurred. Please try again or contact support if the problem persists."
         
-        return text if text.strip() else "I'm processing your travel request. Could you provide more specific details about your destination preferences?"
-        
-    except requests.exceptions.RequestException as e:
-        st.error(f"Connection error with {model_id}: {str(e)}")
-        return "I'm experiencing connectivity issues. Please try again in a moment."
-    except Exception as e:
-        st.error(f"Error with {model_id}: {str(e)}")
-        return "I encountered an issue processing your request. Please try rephrasing your question."
+        # Wait before retry
+        if attempt < max_retries - 1:
+            time.sleep(5)
+    
+    return "I was unable to process your request after multiple attempts. Please try again later."
 
 def create_itinerary_display(destination: str, days: int, demographic: str, budget: int):
     """Create a visual itinerary display"""
@@ -485,13 +525,18 @@ def main():
     
     # Load configuration
     try:
-        hf_token = st.secrets.get("HUGGINGFACE_TOKEN", "")
+        hf_token = st.secrets.get("HUGGINGFACE_TOKEN", "").strip()
         if not hf_token:
             st.error("🚨 **Configuration Error**: HUGGINGFACE_TOKEN not found in secrets.")
             st.info("Please add your Hugging Face token to Streamlit secrets to use the Qwen models.")
+            st.code("""
+# Add this to your Streamlit secrets (.streamlit/secrets.toml):
+[secrets]
+HUGGINGFACE_TOKEN = "hf_your_token_here"
+            """)
             return
-    except:
-        st.error("🚨 **Configuration Error**: Please add your Hugging Face token to secrets.")
+    except Exception as e:
+        st.error(f"🚨 **Configuration Error**: {str(e)}")
         return
     
     # Header
@@ -526,6 +571,14 @@ def main():
             Features: {", ".join(model_info["features"])}
         </div>
         ''', unsafe_allow_html=True)
+        
+        # Test model availability
+        if st.button("🔍 Test Model Availability"):
+            with st.spinner("Testing model..."):
+                if test_model_availability(model_id, hf_token):
+                    st.success(f"✅ {selected_model_name} is available!")
+                else:
+                    st.error(f"❌ {selected_model_name} is not available. Try another model.")
         
         st.session_state.selected_model = selected_model_name
         
@@ -586,6 +639,10 @@ def main():
     # Main chat interface
     st.subheader(f"💬 Chat with TripCraft AI ({selected_model_name})")
     
+    # Display token status
+    if hf_token:
+        st.info(f"🔑 Using Hugging Face token: {hf_token[:10]}...")
+    
     # Display chat history
     for message in st.session_state.messages:
         format_travel_message(message["role"], message["content"])
@@ -605,8 +662,7 @@ def main():
             profile.get("demographic", "Youth (18-25)"),
             profile.get("budget", 2000),
             profile.get("days", 7),
-            profile.get("destination", ""),
-            selected_model_name
+            profile.get("destination", "")
         )
         
         with st.spinner(f"🌍 {selected_model_name} is planning your perfect trip..."):
@@ -627,7 +683,7 @@ def main():
         with col1:
             st.markdown("""
             **🧠 Advanced AI Planning**
-            - Qwen3 reasoning capabilities
+            - Qwen model intelligence
             - Complex itinerary optimization
             - Cultural context understanding
             - Multi-language support
