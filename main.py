@@ -722,4 +722,27 @@ def main():
         suggestions = [
             "Plan a 5-day budget trip to Tokyo for young professionals",
             "What are the best family activities in London with kids under 10?",
+            "Create a romantic weekend getaway itinerary for couples in Santorini",
+            "What's the ideal budget breakdown for a senior trip to Egypt?",
+            "Suggest adventure activities in New Zealand for thrill-seekers",
+            "Help me plan a 10-day cultural tour of India within $3000"
+        ]
+        
+        for suggestion in suggestions:
+            if st.button(f"💭 {suggestion}", key=suggestion):
+                st.session_state.messages.append({"role": "user", "content": suggestion})
+                st.rerun()
+    
+    # Footer
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="text-align: center; color: #666;">
+        <p>✈️ <strong>TripCraft AI</strong> - Powered by {selected_model_name} | 
+        🤖 Working Models | 🎯 Personalized Travel Planning | 💡 Built for Smart Adventures</p>
+        <p><small>Model: {model_id}</small></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
             "
